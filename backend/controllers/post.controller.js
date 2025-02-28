@@ -5,32 +5,34 @@ import Notification from "../models/notification.model.js";
 
 
 export const getFeedPosts = async (req, res) => {
-    try{
-const posts = Post.find({author: {$in: req.user.connections}}).
-populate("author", "name userName profilePic headline").
-populate("comments.user", "name userName profilePic headline").sort({createdAt:-1});
-res.status(200).json(posts);
-    }catch(error){
-console.log(error, "error in post controller")
-res.status(500).json({message:"internal server error"});
-    }
-}
+	try {
+		const posts = await Post.find({ author: { $in: [...req.user.connections, req.user._id] } })
+			.populate("author", "name userName profilePic headline")
+			.populate("comments.user", "name profilePic")
+			.sort({ createdAt: -1 });
+
+		res.status(200).json(posts);
+	} catch (error) {
+		console.error("Error in getFeedPosts controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
 
 export const createPost = async (req, res) => {
     try{
+      
 const {content, image} = req.body;
-
 let newPost;
 
 if(image) {
     const imageResult = await cloudinary.uploader.upload(image);
-    newPost = await Post({
+    newPost = new Post({
         author: req.user._id,
         content,
         image: imageResult.secure_url,
     })
 }else{
-    newPost = await User({
+    newPost =   new Post({
         author: req.user._id,
         content
     })

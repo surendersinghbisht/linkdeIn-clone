@@ -1,6 +1,5 @@
-import { connections } from "mongoose";
-import ConnectionRequest from "../models/connectionRequest.model";
-import User from "../models/user.model";
+import ConnectionRequest from "../models/connectionRequest.model.js";
+import User from "../models/user.model.js";
 
 export const sendConnectionRequest = async (req, res) => {
     try {

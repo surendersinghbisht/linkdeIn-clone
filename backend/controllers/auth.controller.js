@@ -1,107 +1,102 @@
-import User from "../models/user.model.js"
+import User from "../models/user.model.js";
 import bcrypt from "bcrypt";
-import  jwt from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 export const signup = async (req, res) => {
-    try {
-      const { name, userName, email, password } = req.body;
-  
-      // Check if all fields are provided
-      if (!name || !userName || !email || !password) {
-        return res.status(400).json({ message: "All fields are required" });
-      }
-  
-      // Check if email already exists
-      const existingEmail = await User.findOne({ email });
-      if (existingEmail) {
-        return res.status(400).json({ message: "Email already exists" });
-      }
-  
-      // Password validation
-      if (password.length < 6) {
-        return res.status(400).json({ message: "Password must be at least 6 characters" });
-      }
-  
-      // Hash the password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-  
-      // Create the user
-      const user = new User({
-        name,
-        userName,
-        email,
-        password: hashedPassword
-      });
-  
-      // Save the user to the database
-      await user.save();
-  
-      // Generate JWT token after the user is saved
-      const token = jwt.sign(
-        { user_id: user._id },
-        process.env.SECRET_KEY,
-        { expiresIn: "3d" }
-      );
-  
-      // Set JWT token in cookies
-      res.cookie("jwt-linkdein", token, {
-        httpOnly: true,
-        maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days
-        sameSite: "strict",
-        secure: process.env.NODE_ENV === "production",
-      });
-  
-      // Send success response
-      res.status(201).json({ message: "User created successfully" });
-  
-    } catch (error) {
-      console.log(error, "error in signup");
-      res.status(500).json({ message: "Internal server error" });
-    }
-  };
-  
+	try {
+		const { name, userName, email, password } = req.body;
 
-export const login = async (req, res)=>{
-    try{
-       const { userName, password} = req.body;
-      const user = await User.findOne({userName});
-      if(!user){
-        return res.status(404).json({message: "User not found"});
-      }
+		if (!name || !userName || !email || !password) {
+			return res.status(400).json({ message: "All fields are required" });
+		}
 
-      const isMatch = await bcrypt.compare(password, user.password);
-      if(!isMatch){
-        res.status(401).json({message: "Invalid credentials"});
-      }
+		const existingEmail = await User.findOne({ email });
+		if (existingEmail) {
+			return res.status(400).json({ message: "Email already exists" });
+		}
 
-      const token = jwt.sign({user_id: user.id}, process.env.SECRET_KEY, {expiresIn:"3d"});
-      res.cookie("jwt-linkdein",token, {
-        httpOnly: true,
-        maxage: 3 * 24 * 60 * 60 * 1000,
-        samesite: "strict",
-        secure: process.env.NODE_ENV === "production",  
-      })
-res.json({message: "User logged in successfully"});
+		const existingUsername = await User.findOne({ userName });
+		if (existingUsername) {
+			return res.status(400).json({ message: "Username already exists" });
+		}
 
-    }catch(error){
-        console.error(error,"error in login");
-        res.status(500).json({message:"something went wrong"});
-    }
-   
-    }
+		if (password.length < 6) {
+			return res.status(400).json({ message: "Password must be at least 6 characters" });
+		}
 
-    export const logout = (req, res)=>{
-        res.clearCookie("jwt-linkdein");
-        res.status(200).json({message: "User logged out successfully"});
-        }
+		const salt = await bcrypt.genSalt(10);
+		const hashedPassword = await bcrypt.hash(password, salt);
 
+		const user = new User({
+			name,
+			email,
+			password: hashedPassword,
+			userName,
+		});
 
-        export const getCurrentUser = async(req, res)=>{ 
-            try {
-res.json(req.user)
-            }catch(error){
-console.log(error,"error in get current user");
-res.status(500).json({message:"something went wrong"});
-            }
-        }
+		await user.save();
+
+		const token = jwt.sign({ userId: user._id }, process.env.SECRET_KEY, { expiresIn: "3d" });
+
+		res.cookie("jwt-linkedin", token, {
+			httpOnly: true, // prevent XSS attack
+			maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days
+			sameSite: "strict", // prevent CSRF attacks
+			secure: process.env.NODE_ENV === "production", // prevents MITM attacks
+		});
+
+		res.status(201).json({ message: "User registered successfully" });
+	} catch (error) {
+		console.log("Error in signup: ", error.message);
+		res.status(500).json({ message: "Internal server error" });
+	}
+};
+
+export const login = async (req, res) => {
+	try {
+		const { userName, password } = req.body;
+		console.log(userName, password);
+		const user = await User.findOne({ userName });
+
+		if (!user) {
+			return res.status(404).json({ message: "User not found" });
+		}
+
+		const isMatch = await bcrypt.compare(password, user.password);
+		if (!isMatch) {
+			return res.status(401).json({ message: "Invalid credentials" });
+		}
+
+		const token = jwt.sign({ userId: user.id }, process.env.SECRET_KEY, { expiresIn: "3d" });
+
+		// ✅ Fix cookie name and `maxAge`
+		res.cookie("jwt-linkedin", token, {
+			httpOnly: true,
+			maxAge: 3 * 24 * 60 * 60 * 1000, // 3 days
+			sameSite: "strict",
+			secure: process.env.NODE_ENV === "production",
+		});
+
+		res.json({ message: "User logged in successfully" });
+	} catch (error) {
+		console.error("Error in login: ", error.message);
+		res.status(500).json({ message: "Something went wrong" });
+	}
+};
+
+export const logout = (req, res) => {
+	res.clearCookie("jwt-linkedin");
+	res.status(200).json({ message: "User logged out successfully" });
+};
+
+export const getCurrentUser = async (req, res) => {
+	try {
+		if (!req.user) {
+			return res.status(401).json({ message: "Unauthorized" });
+		}
+		res.json(req.user);
+	} catch (error) {
+		console.log("Error in getCurrentUser: ", error.message);
+		res.status(500).json({ message: "Something went wrong" });
+	}
+};
