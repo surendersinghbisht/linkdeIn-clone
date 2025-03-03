@@ -80,3 +80,14 @@ console.log(error,"error in update profile");
 return res.status(500).json({message:"internal server error"});
     }
 }
+
+
+export const getUserConnections = async (req, res) => {
+    try {
+        const connections = await User.findById(req.user._id).select("connections");
+        res.json(connections);
+    } catch (error) {
+        console.log(error,"error in get user connections");
+        res.status(500).json({message:"internal server error"});
+    }
+}
