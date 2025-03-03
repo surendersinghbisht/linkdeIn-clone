@@ -22,7 +22,8 @@ res.status(500).json({message:"internal server error"});
 
 export const getPublicProfile = async (req, res)=> {
     try {
-    const user = await User.findOne({userName: req.params.id}).select("-password");
+
+    const user = await User.findOne({userName: req.params.userName}).select("-password");
 
     if(!user){
         console.log("user not found");

@@ -43,7 +43,7 @@ experience: {
 },
 location: {
 type: String,
-default: ""
+default: "earth"
 },
 education: {
     school: String,

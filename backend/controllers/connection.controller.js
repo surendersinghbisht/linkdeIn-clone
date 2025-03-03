@@ -1,45 +1,41 @@
 import ConnectionRequest from "../models/connectionRequest.model.js";
 import User from "../models/user.model.js";
-
+import Notification from "../models/notification.model.js";
 export const sendConnectionRequest = async (req, res) => {
-    try {
-        const senderId = req.user._id; //sender //logged in user
-        const {userId} = req.params; //reciever
+	try {
+		const { userId } = req.params;
+		const senderId = req.user._id;
 
-        //check if you cant send connection request to yourself
-        if(senderId.toString() === userId){
-            return res.status(400).json({message:"You can't send connection request to yourself"});
-        }
+		if (senderId.toString() === userId) {
+			return res.status(400).json({ message: "You can't send a request to yourself" });
+		}
 
-        //check if user already exist in your connections
+		if (req.user.connections.includes(userId)) {
+			return res.status(400).json({ message: "You are already connected" });
+		}
 
-        if(req.user.connections.includes(userId)){
-            return res.status(400).json({message:"You already have a connection with this user"});
-        }
+		const existingRequest = await ConnectionRequest.findOne({
+			sender: senderId,
+			recipient: userId,
+			status: "pending",
+		});
 
-        //check if user already sent connection request to you
-const existingRequest = await ConnectionRequest.findOne({
-    sender: senderId,
-    recipient: userId,
-    status: "pending"
-})
+		if (existingRequest) {
+			return res.status(400).json({ message: "A connection request already exists" });
+		}
 
-if(existingRequest){
-return res.status(400).json({message:"You already send a req. before"});
-}
+		const newRequest = new ConnectionRequest({
+			sender: senderId,
+			recipient: userId,
+		});
 
-const newRequest = new ConnectionRequest({
-    sender: senderId,
-    recipient: userId,
-});
+		await newRequest.save();
 
-await newRequest.save();
-
-    } catch (error) {
-        console.log(error, "error in connection controller");
-        res.status(500).json({message:"internal server error"});
-    }
-}
+		res.status(201).json({ message: "Connection request sent successfully" });
+	} catch (error) {
+		res.status(500).json({ message: "Server error" });
+	}
+};
 
 export const acceptConnectionRequest = async (req, res) => {
     try {
@@ -47,8 +43,8 @@ export const acceptConnectionRequest = async (req, res) => {
         const {requestId} = req.params;
 
         const request = await ConnectionRequest.findById(requestId)
-        .populate("sender", "name email username")
-        .populate("recipient", "name username");
+        .populate("sender", "name email userName")
+        .populate("recipient", "name userName");
 
         if(!request){
             return res.status(404).json({message:"Request not found"});
@@ -110,32 +106,37 @@ export const rejectConnectionRequest = async (req, res) => {
 	}
 };
 
-export const getConnectionRequests = async (req, res) => {{
- try {
-        const  userId = req.user._id
-        const connectionRequests = await ConnectionRequest.find({
-            recipient: userId,
-            status: "pending"
-        }).populate("sender", "name username profilePicture headline connections");
-        res.status(200).json(connectionRequests);
-    } catch (error) {
-        console.log(error, "error in connection controller");
-        res.status(500).json({message:"internal server error"});
-    }
-}}
+export const getConnectionRequests = async (req, res) => {
+	try {
+		const userId = req.user._id;
+
+		const requests = await ConnectionRequest.find({ recipient: userId, status: "pending" }).populate(
+			"sender",
+			"name username profilePicture headline connections"
+		);
+
+		res.json(requests);
+	} catch (error) {
+		console.error("Error in getConnectionRequests controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
 
 export const getUserConnections = async (req, res) => {
-    try {
-        const userId = req.user._id
-        const connections = await User.findById(userId).
-        populate("connections", "name username profilePicture headline");
+	try {
+		const userId = req.user._id;
 
-        res.status(200).json(connections);
-    } catch (error) {
-        console.log(error, "error in connection controller");
-        res.status(500).json({message:"internal server error"});
-    }
-}
+		const user = await User.findById(userId).populate(
+			"connections",
+			"name username profilePicture headline connections"
+		);
+
+		res.json(user.connections);
+	} catch (error) {
+		console.error("Error in getUserConnections controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
 
 export const removeConnection = async (req, res) => {
     try {

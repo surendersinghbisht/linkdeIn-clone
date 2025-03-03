@@ -11,9 +11,9 @@ export default function Sidebar({ user }) {
 						backgroundImage: `url("${user.bannerImg || "/banner.png"}")`,
 					}}
 				/>
-				<Link to={`/profile/${user.username}`}>
+				<Link to={`/profile/${user.userName}`}>
 					<img
-						src={user.profilePicture || "/avatar.png"}
+						src={user.profilePic || "/avatar.png"}
 						alt={user.name}
 						className='w-20 h-20 rounded-full mx-auto mt-[-40px]'
 					/>
@@ -53,7 +53,7 @@ export default function Sidebar({ user }) {
 				</nav>
 			</div>
 			<div className='border-t border-base-100 p-4'>
-				<Link to={`/profile/${user.username}`} className='text-sm font-semibold'>
+				<Link to={`/profile/${user.userName}`} className='text-sm font-semibold'>
 					Visit your profile
 				</Link>
 			</div>

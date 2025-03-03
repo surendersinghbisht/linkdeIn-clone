@@ -87,71 +87,80 @@ export const getPostbyId = async (req, res) => {
 }
 
 export const createComment = async (req, res) => {
-    try {
-       const postId = req.params.id;
-       const content = req.body.content;
+	try {
+		const postId = req.params.id;
+		const { content } = req.body;
 
-       const post = await Post.findByIdAndUpdate(postId, {
-        $push: {
-            comments: {
-                user: req.user._id,
-                content
-            }
-        }
-       }, {new: true})
-       .populate("comments.user", "name userName profilePic headline");
+		const post = await Post.findByIdAndUpdate(
+			postId,
+			{
+				$push: { comments: { user: req.user._id, content } },
+			},
+			{ new: true }
+		).populate("author", "name email username headline profilePicture");
 
-       // create a notification if the comment owner is not the post owner.
+		// create a notification if the comment owner is not the post owner
+		if (post.author._id.toString() !== req.user._id.toString()) {
+			const newNotification = new Notification({
+				recipient: post.author,
+				type: "comment",
+				relatedUser: req.user._id,
+				relatedPost: postId,
+			});
 
-       if(post.author.toString() !== req.user._id){
-        const newNotification = new Notification({
-            recipient: post.author,
-            type: "comment",
-            relatedUser: req.user._id,
-            relatedPost: post._id
-        })
-        await newNotification.save();
-       } 
+			await newNotification.save();
 
-       res.status(200).json(post);
+			try {
+				const postUrl = process.env.CLIENT_URL + "/post/" + postId;
+				await sendCommentNotificationEmail(
+					post.author.email,
+					post.author.name,
+					req.user.name,
+					postUrl,
+					content
+				);
+			} catch (error) {
+				console.log("Error in sending comment notification email:", error);
+			}
+		}
 
-    } catch (error) {
-        console.log(error, "error in post controller");
-        res.status(500).json({message:"internal server error"});
-    }
-}
-
+		res.status(200).json(post);
+	} catch (error) {
+		console.error("Error in createComment controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};
 
 export const likePost = async (req, res) => {
-    try {
-        const postId = req.params.id;
-        const userId = req.body._id;
-        const post = await Post.findById(postId);
+	try {
+		const postId = req.params.id;
+		const post = await Post.findById(postId);
+		const userId = req.user._id;
+		if (post.likes.includes(userId)) {
+			// unlike the post
+			post.likes = post.likes.filter((id) => id.toString() !== userId.toString());
+		} else {
+			// like the post
+			post.likes.push(userId);
 
+			// create a notification if the post owner is not the user who liked
+			if (post.author._id.toString() !== userId.toString()) {
+				const newNotification = new Notification({
+					recipient: post.author,
+					type: "like",
+					relatedUser: userId,
+					relatedPost: postId,
+				});
 
-        //unlike
-        if(post.likes.includes(userId)){
-post.likes = post.filter((id)=> id.toString() !==userId.toString);
-        }else {
-            //like
-            post.likes.push(userId);
-        }
+				await newNotification.save();
+			}
+		}
 
-//notification for like
+		await post.save();
 
-if(post.author.toString() !== userId.toString()){
-const likeNotification = new Notification({
-    recipient: post.author,
-    type: "like",
-    relatedUser: userId,
-    relatedPost: postId
-})
-await likeNotification.save();
-}
-
-    } catch (error) {
-        console.log(error, "error in post controller");
-        res.status(500).json({message:"internal server error"});
-        
-    }
-}
+		res.status(200).json(post);
+	} catch (error) {
+		console.error("Error in likePost controller:", error);
+		res.status(500).json({ message: "Server error" });
+	}
+};

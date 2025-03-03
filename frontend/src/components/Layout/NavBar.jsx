@@ -70,7 +70,7 @@ const Navbar = () => {
 									)}
 								</Link>
 								<Link
-									to={`/profile/${authUser.username}`}
+									to={`/profile/${authUser.userName}`}
 									className='text-neutral flex flex-col items-center'
 								>
 									<User size={20} />
